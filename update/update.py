@@ -16,15 +16,17 @@ def update_data(response):
         if len(i) > 0:
             data[name] = i[0]['value']
 
+
+BASE_URL = 'https://www.sicoes.gob.bo/portal/contrataciones'
 def get_session():
     global data
     global cookies
 
-    url = 'https://www.sicoes.gob.bo/portal/contrataciones/busqueda/convocatorias.php?tipo=convNacional'
-    
+    url = BASE_URL + '/busqueda/convocatorias.php?tipo=convNacional'
+
     response = requests.get(url, cookies=cookies)
     update_cookies(response)
-    
+
     response = requests.get(url, cookies=cookies)
     update_data(response)
 
@@ -39,28 +41,27 @@ def parse_results(response_json, encoding='iso-8859-1'):
 
 def search():
     global total_results
-    
-    response = requests.post('https://www.sicoes.gob.bo/portal/contrataciones/operacion.php', cookies=cookies, data=data)
-    
+
+    url = BASE_URL + '/operacion.php'
+    response = requests.post(url, cookies=cookies, data=data)
+
     if 'error' not in response.json().keys():
         update_cookies(response)
         update_data(response)
         r = response.json()
         total_results = r['recordsTotal']
         return parse_results(r)
-    
+
     else:
         return 'error'
 
 def search_all():
-    
     while True:
         results = search()
         if results == 'error':
-
             get_session()
-        else:
 
+        else:
             print('{}/{}'.format((int(data['draw']) - 1) * 10, total_results))
             all_results.extend(results)
             data['draw'] = str(int(data['draw']) + 1)
@@ -68,47 +69,53 @@ def search_all():
             if len(results) < 10:
                 break
 
+DATA_COLUMNS = [
+	'cuce',
+	'entidad',
+	'tipo_de_contratacion',
+	'modalidad',
+	'objeto_de_contratacion',
+	'estado',
+	'subasta',
+	'fecha_presentacion',
+	'fecha_publicacion',
+	'archivos',
+	'formularios',
+	'ficha_del_proceso',
+	'persona_contacto',
+	'garantia',
+	'costo_pliego',
+	'arpc',
+	'reunion_aclaracion',
+	'fecha_adjudicacion_desierta',
+	'departamento',
+	'normativa'
+]
+DATE_COLUMNS = [
+    'fecha_presentacion',
+    'fecha_publicacion',
+    'fecha_adjudicacion_desierta'
+]
 def format_results(results):
-    names = [
-        'CUCE',
-        'Entidad',
-        'Tipo de Contratación',
-        'Modalidad',
-        'Objeto de Contratación',
-        'Estado',
-        'Subasta',
-        'Fecha Presentación',
-        'Fecha Publicación',
-        'Archivos',
-        'Formularios',
-        'Ficha del proceso',
-        'Persona contacto',
-        'Garantía',
-        'CostoPliego',
-        'ARPC',
-        'Reunión aclaración',
-        'Fecha Adjudicación / Desierta',
-        'Departamento',
-        'Normativa'
-    ]
-    
     df = pd.DataFrame(results)
-    df.columns = names
-    
-    for col in ['Fecha Presentación', 'Fecha Publicación', 'Fecha Adjudicación / Desierta']:
+    df.columns = DATA_COLUMNS
+
+    for col in DATE_COLUMNS:
         df[col] = pd.to_datetime(df[col], format='%d/%m/%Y', errors='coerce')
-        
-    df['Subasta'] = df['Subasta'].map({'Si': True, 'No': False})
-        
-    df.drop(columns=['Garantía', 'CostoPliego', 'ARPC', 'Reunión aclaración', 'Ficha del proceso'], inplace=True)
-    
-    for col in ['Archivos', 'Formularios']:
-        df[col] = df[col].apply(lambda x: [a.get_text() for a in BeautifulSoup(x, 'html.parser').select('a')])
-    
+
+    df['subasta'] = df['subasta'].map({'Si': True, 'No': False})
+
+    df.drop(
+        columns=[
+            'garantia', 'costo_pliego', 'arpc', 'reunion_aclaracion',
+            'ficha_del_proceso', 'archivos', 'formularios'
+        ],
+        inplace=True
+    )
+
     return df
 
 def update_indice(ayer, df):
-    
     este_mes = ayer.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
     indice = pd.read_csv('indice.csv', parse_dates=['mes'])
     if (indice.mes == este_mes.strftime('%Y-%m-%d')).sum() > 0:
@@ -163,21 +170,26 @@ data = {
     'captcha': '',
 }
 
-get_session()
+if __name__ == '__main__':
+    get_session()
 
-ayer = (dt.datetime.now() - dt.timedelta(days=1))
-for fecha in ['publicacionDesde', 'publicacionHasta']:
-    data[fecha] = ayer.strftime('%d/%m/%Y')
-all_results = []
-total_results = 0
+    ayer = (dt.datetime.now() - dt.timedelta(days=1))
+    for fecha in ['publicacionDesde', 'publicacionHasta']:
+        data[fecha] = ayer.strftime('%d/%m/%Y')
+    all_results = []
+    total_results = 0
 
-search_all()
-if len(all_results) > 0:
-    df = format_results(all_results)
+    search_all()
+    if len(all_results) > 0:
+        df = format_results(all_results)
 
-    filename = 'data/{}.csv'.format(ayer.strftime('%Y%m'))
-    if os.path.exists(filename):
-        old = pd.read_csv(filename, parse_dates=['Fecha Presentación', 'Fecha Publicación', 'Fecha Adjudicación / Desierta'])
-        df = pd.concat([old, df])
-    df.sort_values(['Fecha Publicación', 'CUCE']).to_csv(filename, index=False)
-    update_indice(ayer, df)
+        filename = 'data/{}.csv'.format(ayer.strftime('%Y%m'))
+        if os.path.exists(filename):
+            old = pd.read_csv(filename, parse_dates=DATE_COLUMNS)
+            df = pd.concat([old, df])
+
+        df.sort_values([
+            'fecha_publicacion', 'cuce'
+        ]).to_csv(filename, index=False)
+
+        update_indice(ayer, df)
