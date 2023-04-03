@@ -5,6 +5,16 @@ from bs4 import BeautifulSoup
 import pandas as pd
 import datetime as dt
 import os
+import argparse
+
+def what_day():
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--dia', required=False, type=str, help='Fecha de Publicación')
+    args = parser.parse_args()
+    if args.dia:
+        return dt.datetime.strptime(args.dia, '%Y-%m-%d')
+    else:
+        return (dt.datetime.now() - dt.timedelta(days=1))
 
 def update_cookies(response):
     cookies['PHPSESSID'] = response.cookies.get('PHPSESSID')
@@ -115,8 +125,8 @@ def format_results(results):
 
     return df
 
-def update_indice(ayer, df):
-    este_mes = ayer.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+def update_indice(dia, df):
+    este_mes = dia.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
     indice = pd.read_csv('indice.csv', parse_dates=['mes'])
     if (indice.mes == este_mes.strftime('%Y-%m-%d')).sum() > 0:
         indice.loc[indice.mes == este_mes.strftime('%Y-%m-%d'), 'convocatorias'] = df.shape[0]
@@ -173,9 +183,10 @@ data = {
 if __name__ == '__main__':
     get_session()
 
-    ayer = (dt.datetime.now() - dt.timedelta(days=1))
+    # ayer = (dt.datetime.now() - dt.timedelta(days=1))
+    dia = what_day()
     for fecha in ['publicacionDesde', 'publicacionHasta']:
-        data[fecha] = ayer.strftime('%d/%m/%Y')
+        data[fecha] = dia.strftime('%d/%m/%Y')
     all_results = []
     total_results = 0
 
@@ -183,7 +194,7 @@ if __name__ == '__main__':
     if len(all_results) > 0:
         df = format_results(all_results)
 
-        filename = 'data/{}.csv'.format(ayer.strftime('%Y%m'))
+        filename = 'data/{}.csv'.format(dia.strftime('%Y%m'))
         if os.path.exists(filename):
             old = pd.read_csv(filename, parse_dates=DATE_COLUMNS)
             df = pd.concat([old, df])
@@ -192,4 +203,4 @@ if __name__ == '__main__':
             'fecha_publicacion', 'cuce'
         ]).to_csv(filename, index=False)
 
-        update_indice(ayer, df)
+        update_indice(dia, df)
