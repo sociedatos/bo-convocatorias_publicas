@@ -34,7 +34,7 @@ def get_session():
 
     url = BASE_URL + '/busqueda/convocatorias.php?tipo=convNacional'
 
-    response = requests.get(url, cookies=cookies)
+    response = requests.get('https://www.sicoes.gob.bo/portal/index.php', cookies=cookies)
     update_cookies(response)
 
     response = requests.get(url, cookies=cookies)
@@ -56,8 +56,8 @@ def search():
     response = requests.post(url, cookies=cookies, data=data)
 
     if 'error' not in response.json().keys():
-        update_cookies(response)
-        update_data(response)
+        # update_cookies(response)
+        # update_data(response)
         r = response.json()
         total_results = r['recordsTotal']
         return parse_results(r)
@@ -135,7 +135,7 @@ def update_indice(dia, df):
     indice.to_csv('indice.csv', index=False, date_format='%Y-%m-%d')
 
 cookies = {
-    'cpttxhHQrES2eWopmC6e+yrKFa1G': 'v1RbeGSQSDF6E'
+    'cpttxhHQrES2eWopmC6e+yrKFa1G': 'v1ZreGSQSDj10'
 }
 
 data = {
