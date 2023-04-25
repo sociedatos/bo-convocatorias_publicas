@@ -16,8 +16,6 @@ def what_day():
     else:
         return (dt.datetime.now() - dt.timedelta(days=1))
 
-def update_cookies(response):
-    cookies['PHPSESSID'] = response.cookies.get('PHPSESSID')
 
 def update_data(response):
     html = BeautifulSoup(response.text, 'html.parser')
@@ -27,18 +25,22 @@ def update_data(response):
             data[name] = i[0]['value']
 
 
-BASE_URL = 'https://www.sicoes.gob.bo/portal/contrataciones'
+BASE_URL = 'https://www.sicoes.gob.bo/portal'
 def get_session():
     global data
     global cookies
 
-    url = BASE_URL + '/busqueda/convocatorias.php?tipo=convNacional'
+    sess = requests.session()
 
-    response = requests.get('https://www.sicoes.gob.bo/portal/index.php', cookies=cookies)
-    update_cookies(response)
+    url = BASE_URL + '/index.php'
+    response = sess.get(url, headers=headers)
 
-    response = requests.get(url, cookies=cookies)
+    url = BASE_URL + '/contrataciones/busqueda/convocatorias.php?tipo=convNacional'
+    response = sess.get(url, headers=headers)
     update_data(response)
+
+    return sess
+
 
 def parse_field(field, encoding):
     if '%' in field:
@@ -46,18 +48,19 @@ def parse_field(field, encoding):
     else:
         return field
 
+
 def parse_results(response_json, encoding='iso-8859-1'):
     return [{field: parse_field(item[field], encoding) for field in item.keys()} for item in response_json['data']]
 
-def search():
+
+def search(sess):
     global total_results
 
-    url = BASE_URL + '/operacion.php'
-    response = requests.post(url, cookies=cookies, data=data)
+    url = BASE_URL + '/contrataciones/operacion.php'
+    response = sess.post(url, headers=headers, data=data)
 
     if 'error' not in response.json().keys():
-        # update_cookies(response)
-        # update_data(response)
+        update_data(response)
         r = response.json()
         total_results = r['recordsTotal']
         return parse_results(r)
@@ -65,11 +68,12 @@ def search():
     else:
         return 'error'
 
-def search_all():
+
+def search_all(sess):
     while True:
-        results = search()
+        results = search(sess)
         if results == 'error':
-            get_session()
+            sess = get_session()
 
         else:
             print('{}/{}'.format((int(data['draw']) - 1) * 10, total_results))
@@ -125,6 +129,7 @@ def format_results(results):
 
     return df
 
+
 def update_indice(dia, df):
     este_mes = dia.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
     indice = pd.read_csv('indice.csv', parse_dates=['mes'])
@@ -134,8 +139,10 @@ def update_indice(dia, df):
         indice.loc[-1] = [este_mes, df.shape[0]]
     indice.to_csv('indice.csv', index=False, date_format='%Y-%m-%d')
 
-cookies = {
-    'cpttxhHQrES2eWopmC6e+yrKFa1G': 'v1ZreGSQSDj10'
+
+headers = {
+    'User-Agent': 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko)',
+    'Referer': 'https://www.sicoes.gob.bo/portal/index.php'
 }
 
 data = {
@@ -181,7 +188,7 @@ data = {
 }
 
 if __name__ == '__main__':
-    get_session()
+    sess = get_session()
 
     # ayer = (dt.datetime.now() - dt.timedelta(days=1))
     dia = what_day()
@@ -190,7 +197,7 @@ if __name__ == '__main__':
     all_results = []
     total_results = 0
 
-    search_all()
+    search_all(sess)
     if len(all_results) > 0:
         df = format_results(all_results)
 
