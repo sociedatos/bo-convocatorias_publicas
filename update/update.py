@@ -8,6 +8,7 @@ import pandas as pd
 import datetime as dt
 import os
 import argparse
+import re
 
 MAX_RETRIES = 20
 TIMEOUT = 30
@@ -141,7 +142,7 @@ def get_session():
 
 
 def parse_field(field, encoding):
-    if '%' in field:
+    if field and len(re.findall('(\%[0-9A-F][0-9A-F]*)', field)) > 3:
         return bytes.fromhex(field.replace('%', '')).decode(encoding)
     else:
         return field
