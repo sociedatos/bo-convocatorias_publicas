@@ -223,7 +223,12 @@ def descargarConvocatorias(
         print(
             f"Error: una respuesta vacía o malformada. Saltando la página {data["draw"]}."
         )
-        data["draw"] = str(int(data["draw"]) + 1)
+        errores += 1
+        if errores >= 3:
+            print("Demasiadas respuestas malformadas: el servidor está descompuesto. Deteniendo el programa.")
+            sys.exit(1)
+        else:
+            data["draw"] = str(int(data["draw"]) + 1)
         return data, detener
     except Exception as e:
         print(f"Error: {e}. Deteniendo el programa.")
@@ -315,7 +320,7 @@ def actualizarRegistro(tabla: pd.core.frame.DataFrame, dia: dt.datetime):
 
 
 if __name__ == "__main__":
-    convocatorias = []
+    convocatorias, errores = [], 0
     conexion, headers, data, dia = iniciarDescarga()
     while True:
         data, detener = descargarConvocatorias(conexion, headers, data)
