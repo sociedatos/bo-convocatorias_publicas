@@ -223,8 +223,8 @@ def descargarConvocatorias(
         print(
             f"Error: una respuesta vacía o malformada. Saltando la página {data["draw"]}."
         )
-        errores += 1
-        if errores >= 3:
+        errores.append(data["draw"])
+        if len(errores) >= 3:
             print("Demasiadas respuestas malformadas: el servidor está descompuesto. Deteniendo el programa.")
             sys.exit(1)
         else:
@@ -320,7 +320,7 @@ def actualizarRegistro(tabla: pd.core.frame.DataFrame, dia: dt.datetime):
 
 
 if __name__ == "__main__":
-    convocatorias, errores = [], 0
+    convocatorias, errores = [], []
     conexion, headers, data, dia = iniciarDescarga()
     while True:
         data, detener = descargarConvocatorias(conexion, headers, data)
