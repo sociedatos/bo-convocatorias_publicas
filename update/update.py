@@ -326,5 +326,6 @@ if __name__ == "__main__":
         data, detener = descargarConvocatorias(conexion, headers, data)
         if detener:
             break
-    tabla = estructurarConvocatorias(convocatorias)
-    actualizarRegistro(tabla, dia)
+    if convocatorias:
+        tabla = estructurarConvocatorias(convocatorias)
+        actualizarRegistro(tabla, dia)
