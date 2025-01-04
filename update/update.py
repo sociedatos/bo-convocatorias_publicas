@@ -26,12 +26,13 @@ def iniciarSesion(conexion: requests.sessions.Session, headers: dict, data: dict
         timeout=TIMEOUT,
         verify=False,
     )
+
     return mantenerSesion(data, respuesta)
 
 
 def mantenerSesion(data: dict, response: requests.models.Response):
     """Actualiza los parámetros que mantienen una sesión"""
-    parametros_sesion = ["B903A6B7", "varSesionCli"]
+    parametros_sesion = ["token"]
 
     html = BeautifulSoup(response.text, "html.parser")
 
